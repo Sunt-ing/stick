@@ -1,0 +1,13 @@
+.vscode/
+.pylintrc
+CMakeCache.txt
+cmake_install.cmake
+CMakeFiles/
+.idea/
+target/
+.ipynb_checkpoints
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.DS_Store
