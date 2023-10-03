@@ -1,6 +1,6 @@
 # Stick
 
-Stick is an educational deep learning framework. You can DIY such a framework by folllowing the [CMU 10-414/714 DLSys](https://dlsyscourse.org) or [Cornell MiniTorch course](https://minitorch.github.io/). The skeleton of this repository is from the CMU 10-414/714 DLSys course.
+Stick is an educational deep learning framework. The skeleton of this repository is from the [CMU 10-414/714 DLSys course](https://dlsyscourse.org). An alternative of this course is [Cornell MiniTorch course](https://minitorch.github.io/).
 
 ## Features
 - Common operators (e.g. matmul, conv), optimizers (e.g. SGD, Adam), and models (e.g. ResNet, LSTM)
@@ -8,7 +8,7 @@ Stick is an educational deep learning framework. You can DIY such a framework by
 - CPU (C++) and GPU (CUDA) NDArray backends
 - Checkpointing (rematerialization)
 
-Checkpointing serves as a demo of implementing research ideas on your own framework. Other features are NEcessary Elements for Deep LEarning (NEEDLE).
+The feature checkpointing is an implementation of [a paper by Tianqi Chen](https://arxiv.org/abs/1604.06174). It serves as an example of implementing research ideas on a DIY deep learning framework. Other features are NEcessary Elements for Deep LEarning (NEEDLE).
 
 ## How To Run
 
