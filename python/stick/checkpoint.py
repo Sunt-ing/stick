@@ -1,4 +1,6 @@
-# Reference: https://github.com/Lyken17/pytorch-memonger
+# Reference: 
+#   idea: https://arxiv.org/abs/1604.06174
+#   impl: https://github.com/Lyken17/pytorch-memonger
 
 from . import ops
 from .ops import Tensor, Function

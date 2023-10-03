@@ -1,7 +1,7 @@
 import sys
 sys.path.append("./python")
 import stick as stk
-from stick import memonger, nn
+from stick import checkpoint, nn
 import numpy as np
 import time
 
@@ -37,11 +37,11 @@ def model_res(TestModule):
     return ret, cnt
 
 
-def test_memonger():
+def test_checkpoint():
     start = time.time()
     output1, cnt1 = model_res(nn.Sequential)
     mid = time.time()
-    output2, cnt2 = model_res(memonger.Memonger)
+    output2, cnt2 = model_res(checkpoint.Memonger)
     end = time.time()
     dur1 = "{:.5f}".format(mid - start)
     dur2 = "{:.5f}".format(end - mid)
@@ -53,4 +53,4 @@ def test_memonger():
     assert cnt1 > cnt2
 
 if __name__ == "__main__":
-    test_memonger()
+    test_checkpoint()
