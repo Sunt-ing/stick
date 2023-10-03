@@ -1,9 +1,8 @@
+import sys
+sys.path.append('python/')
 import struct
 import gzip
 import numpy as np
-
-import sys
-sys.path.append('python/')
 import stick as stk
 
 

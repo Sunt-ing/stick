@@ -4,7 +4,7 @@ Stick is an educational deep learning framework. The skeleton of this repository
 
 ## Features
 - Common operators (e.g. matmul, conv), optimizers (e.g. SGD, Adam), and models (e.g. ResNet, LSTM)
-- Automatic Differentiation
+- Automatic differentiation
 - CPU (C++) and GPU (CUDA) NDArray backends
 - Checkpointing (rematerialization)
 

@@ -1,5 +1,4 @@
-"""Operatpr table."""
-# Global operator table.
+"""Global Operatpr table."""
 from typing import Any, List, Optional, Tuple, Union
 import numpy
 from .backend_selection import *

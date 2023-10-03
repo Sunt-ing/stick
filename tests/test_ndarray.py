@@ -375,28 +375,3 @@ def test_ewise_tanh(device):
     A = np.random.randn(5, 5)
     B = nd.array(A, device=device)
     np.testing.assert_allclose(np.tanh(A), (B.tanh()).numpy(), atol=1e-5, rtol=1e-5)
-
-
-######################    |    ######################
-###################### MUGRADE ######################
-######################    v    ######################
-
-def Prepare(A):
-    return (A.numpy().flatten()[:128], A.strides, A.shape)
-
-
-def Rand(*shape, device=nd.cpu(), entropy=1):
-    np.random.seed(np.prod(shape) * len(shape) * entropy)
-    _A = np.random.randint(low=1, high=100, size=shape)
-    return nd.array(_A, device=device)
-
-
-def RandC(*shape, entropy=1):
-    if nd.cuda().enabled():
-        return Rand(*shape, device=nd.cuda(), entropy=2)
-    else:
-        raise NotImplementedError("You need a GPU to run these tests.")
-
-
-if __name__ == "__main__":
-    print("You have to run the tests with pytest due to parameterization.")

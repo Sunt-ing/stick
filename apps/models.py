@@ -1,12 +1,12 @@
+# Reference: 
+# https://github.com/Somoku/CMU10-714-DLSys
+# https://github.com/YuanchengFang/dlsys_solution
+
 import sys
 sys.path.append('./python')
 import stick as stk
 import stick.nn as nn
 import numpy as np
-
-# Reference: 
-# https://github.com/Somoku/CMU10-714-DLSys
-# https://github.com/YuanchengFang/dlsys_solution
 
 
 np.random.seed(0)

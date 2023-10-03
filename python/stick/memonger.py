@@ -1,12 +1,11 @@
+# Reference: https://github.com/Lyken17/pytorch-memonger
+
 from . import ops
-from .ops import Tensor, compute_gradient_of_variables, Function
+from .ops import Tensor, Function
 from .nn import Module, BatchNorm1d
 import numpy as np
 from typing import Any
 import math
-
-
-# Reference: https://github.com/Lyken17/pytorch-memonger
 
 
 class enable_grad:
@@ -62,7 +61,7 @@ class Checkpoint(Function):
             input.requires_grad = self.input.requires_grad
             self.input = None # reduce memory footprint
             output = self.run_module(input) #recompute
-            compute_gradient_of_variables(output, out_grad)
+            ops.compute_gradient_of_variables(output, out_grad)
         return input.grad
     
     def run_module(self, input):

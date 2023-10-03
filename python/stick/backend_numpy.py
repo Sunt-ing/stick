@@ -1,6 +1,6 @@
 """This file defies specific implementations of devices when using numpy as NDArray backend.
 """
-import numpy
+import numpy as np
 
 
 class Device:
@@ -23,19 +23,19 @@ class CPUDevice(Device):
         return True
 
     def randn(self, *shape, dtype="float32"):
-        return numpy.random.randn(*shape).astype(dtype)
+        return np.random.randn(*shape).astype(dtype)
 
     def rand(self, *shape, dtype="float32"):
-        return numpy.random.rand(*shape).astype(dtype)
+        return np.random.rand(*shape).astype(dtype)
 
     def one_hot(self, n, i, dtype="float32"):
-        return numpy.eye(n, dtype=dtype)[i]
+        return np.eye(n, dtype=dtype)[i]
 
     def empty(self, shape, dtype="float32"):
-        return numpy.empty(shape, dtype=dtype)
+        return np.empty(shape, dtype=dtype)
 
     def full(self, shape, fill_value, dtype="float32"):
-        return numpy.full(shape, fill_value, dtype=dtype)
+        return np.full(shape, fill_value, dtype=dtype)
 
 
 def cpu():

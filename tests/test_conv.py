@@ -487,24 +487,3 @@ def one_iter_of_cifar10_training(dataloader, model, niter=1, loss_fn=stk.nn.Soft
             break
         i += 1
     return correct/(y.shape[0]*niter), total_loss/(y.shape[0]*niter)
-
-
-######################    |    ######################
-###################### MUGRADE ######################
-######################    v    ######################
-
-def Prepare(A):
-    return (A.numpy().flatten()[:64], A.shape)
-
-
-def Rand(*shape, device=stk.cpu(), entropy=1):
-    np.random.seed(np.prod(shape) * len(shape) * entropy)
-    _A = np.random.randint(low=1, high=10, size=shape)
-    return stk.Tensor(_A, device=device)
-
-
-def RandC(*shape, entropy=1):
-    if stk.cuda().enabled():
-        return Rand(*shape, device=stk.cuda(), entropy=2)
-    else:
-        raise NotImplementedError("You need a GPU to run these tests.")
