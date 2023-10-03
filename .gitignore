@@ -1,10 +1,12 @@
 .vscode/
 .pylintrc
+.pytest_cache/
 CMakeCache.txt
 cmake_install.cmake
 CMakeFiles/
 .idea/
 target/
+build/
 .ipynb_checkpoints
 __pycache__/
 *.py[cod]
