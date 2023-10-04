@@ -1,4 +1,4 @@
-"""Global Operatpr table."""
+"""Basic operators and automatic differentiation."""
 from typing import Any, List, Optional, Tuple, Union
 import numpy
 from .backend_selection import *
@@ -997,8 +997,8 @@ def undilate(a, axes, dilation):
 
 
 # Reference: 
-# https://github.com/Somoku/CMU10-714-DLSys
-# https://github.com/YuanchengFang/dlsys_solution
+#   https://github.com/Somoku/CMU10-714-DLSys
+#   https://github.com/YuanchengFang/dlsys_solution
 
 
 class Conv(TensorOp):

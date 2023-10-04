@@ -1,4 +1,4 @@
-"""Logic for backend selection"""
+"""Backend selection between numpy and self-impl NDArray."""
 import os
 
 

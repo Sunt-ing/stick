@@ -1,4 +1,4 @@
-"""Optimization module"""
+"""Optimizer modules."""
 from . import init
 import numpy as np
 

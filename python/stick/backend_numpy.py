@@ -1,5 +1,4 @@
-"""This file defies specific implementations of devices when using numpy as NDArray backend.
-"""
+"""Devices impl when using numpy as NDArray backend."""
 import numpy as np
 
 

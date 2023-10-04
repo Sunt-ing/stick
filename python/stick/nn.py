@@ -1,4 +1,4 @@
-"""The module."""
+"""The NN modules."""
 from . import ops, init
 from .ops import Tensor
 import numpy as np

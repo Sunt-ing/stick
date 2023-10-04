@@ -6,6 +6,7 @@ import numpy as np
 import time
 
 
+# a ResNet built on TestModule (Sequential or Memonger)
 def MLPResNet(TestModule, dim, hidden_dim=100, num_blocks=3, num_classes=10, norm=nn.BatchNorm1d, drop_prob=0.1):
     def ResidualBlock(dim, hidden_dim, norm=nn.BatchNorm1d, drop_prob=0.1):
         seq = TestModule(nn.Linear(dim, hidden_dim), norm(hidden_dim), nn.ReLU(), nn.Dropout(drop_prob), nn.Linear(hidden_dim, dim), norm(dim))
@@ -21,7 +22,9 @@ def model_res(TestModule):
     begin = stk.array_api.NDARRAY_COUNTER
     np.random.seed(233)
     model = MLPResNet(TestModule, 28 * 28, drop_prob=0)
+    # 2 is batch size
     inputs = stk.randn(2, 28 * 28, requires_grad=True)
+    # set state
     model.train()
     h = model(inputs)
     
@@ -49,6 +52,7 @@ def test_checkpoint():
     print("Sequential vs Memonger")
     print(f"duration: {dur1}, {dur2}")
     print(f"NDArray num: {cnt1}, {cnt2}")
+
     np.testing.assert_allclose(output1, output2, rtol=1e-5, atol=1e-5)
     assert cnt1 > cnt2
 

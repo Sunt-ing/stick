@@ -1,3 +1,5 @@
+"""Run seqeuntial modules with sublinear memory cost."""
+
 # Reference: 
 #   idea: https://arxiv.org/abs/1604.06174
 #   impl: https://github.com/Lyken17/pytorch-memonger
