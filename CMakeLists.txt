@@ -1,14 +1,11 @@
 cmake_minimum_required(VERSION 3.2)
 project(stick C CXX)
 
-# (Ting): Set the path for Python
-set(PYTHON_EXECUTABLE /opt/homebrew/Frameworks/Python.framework/Versions/3.9/bin/python3.9)
 set(CMAKE_OSX_ARCHITECTURES "x86_64")
 
 # (Ting): find correct version of Python
 # execute_process(COMMAND python3-config --prefix
 #   OUTPUT_VARIABLE Python_ROOT_DIR)
-set(Python_ROOT_DIR /opt/homebrew/Frameworks/Python.framework/Versions/3.9/bin/python3.9)
 find_package(Python COMPONENTS Development Interpreter REQUIRED)
 include_directories(${Python_INCLUDE_DIRS})
 
@@ -50,6 +47,11 @@ set_target_properties(ndarray_backend_cpu
   CXX_VISIBILITY_PRESET "hidden"
 )
 
+set_target_properties(ndarray_backend_cpu 
+  PROPERTIES
+  LIBRARY_OUTPUT_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/python/stick/backend_ndarray
+)
+
 if(${CMAKE_SYSTEM_NAME} MATCHES "Darwin")
   set_property(TARGET ndarray_backend_cpu PROPERTY LINK_OPTIONS -undefined dynamic_lookup)
 endif()
@@ -88,7 +90,11 @@ if(CUDA_FOUND)
     LIBRARY_OUTPUT_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/python/stick/backend_ndarray
     CXX_VISIBILITY_PRESET "hidden"
     CUDA_VISIBILITY_PRESET "hidden"
-)
+  )
+
+  set_target_properties(ndarray_backend_cpu 
+    PROPERTIES
+    LIBRARY_OUTPUT_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/python/stick/backend_ndarray
+  )
 
 endif()
-

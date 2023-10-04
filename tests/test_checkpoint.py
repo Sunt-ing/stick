@@ -3,7 +3,7 @@ sys.path.append("./python")
 import stick as stk
 from stick import checkpoint, nn
 import numpy as np
-import time
+import time, pytest
 
 
 # a ResNet built on TestModule (Sequential or Memonger)
@@ -40,6 +40,11 @@ def model_res(TestModule):
     return ret, cnt
 
 
+_DEVICES = [stk.cpu(), pytest.param(stk.cuda(),
+    marks=pytest.mark.skipif(not stk.cuda().enabled(), reason="No GPU"))]
+
+
+@pytest.mark.parametrize("device", _DEVICES, ids=["cpu", "cuda"])
 def test_checkpoint():
     start = time.time()
     output1, cnt1 = model_res(nn.Sequential)
