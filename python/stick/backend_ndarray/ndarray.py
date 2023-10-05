@@ -520,6 +520,7 @@ class NDArray:
         """
 
         # (Ting): we currently do not support batched matmul.
+        print("self.shape",self.shape)
         assert self.ndim == 2 and other.ndim == 2
         assert self.shape[1] == other.shape[0]
 
@@ -550,6 +551,7 @@ class NDArray:
 
         else:
             out = NDArray.make((m, p), device=self.device)
+            print(self.compact()._handle, other.compact()._handle, out._handle, m, n, p)
             self.device.matmul(
                 self.compact()._handle, other.compact()._handle, out._handle, m, n, p
             )
