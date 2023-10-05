@@ -3,6 +3,7 @@ sys.path.append("./python")
 import stick as stk
 from stick import checkpoint, nn
 import numpy as np
+from stick import backend_ndarray as nd
 import time, pytest
 
 
@@ -18,12 +19,12 @@ def MLPResNet(TestModule, dim, hidden_dim=100, num_blocks=3, num_classes=10, nor
     return TestModule(linear1, nn.ReLU(), *rbs, linear2)
 
 
-def model_res(TestModule):
+def model_res(TestModule, device):
     begin = stk.array_api.NDARRAY_COUNTER
     np.random.seed(233)
     model = MLPResNet(TestModule, 28 * 28, drop_prob=0)
     # 2 is batch size
-    inputs = stk.randn(2, 28 * 28, requires_grad=True)
+    inputs = stk.randn(2, 28 * 28, requires_grad=True, device=device)
     # set state
     model.train()
     h = model(inputs)
@@ -45,11 +46,11 @@ _DEVICES = [stk.cpu(), pytest.param(stk.cuda(),
 
 
 @pytest.mark.parametrize("device", _DEVICES, ids=["cpu", "cuda"])
-def test_checkpoint():
+def test_checkpoint(device):
     start = time.time()
-    output1, cnt1 = model_res(nn.Sequential)
+    output1, cnt1 = model_res(nn.Sequential, device)
     mid = time.time()
-    output2, cnt2 = model_res(checkpoint.Memonger)
+    output2, cnt2 = model_res(checkpoint.Memonger, device)
     end = time.time()
     dur1 = "{:.5f}".format(mid - start)
     dur2 = "{:.5f}".format(end - mid)
