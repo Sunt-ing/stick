@@ -23,8 +23,8 @@ def model_res(TestModule, device):
     begin = stk.array_api.NDARRAY_COUNTER
     np.random.seed(233)
     model = MLPResNet(TestModule, 28 * 28, drop_prob=0)
-    # 2 is batch size
-    inputs = stk.randn(2, 28 * 28, requires_grad=True, device=device)
+    # 1 is batch size
+    inputs = stk.randn(1, 28 * 28, requires_grad=True, device=device)
     # set state
     model.train()
     h = model(inputs)
