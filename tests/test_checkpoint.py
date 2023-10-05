@@ -47,7 +47,7 @@ _DEVICES = [stk.cpu(), pytest.param(stk.cuda(),
     marks=pytest.mark.skipif(not stk.cuda().enabled(), reason="No GPU"))]
 
 
-@pytest.mark.parametrize("device", _DEVICES, ids=["cpu", "cuda"])
+@pytest.mark.parametrize("device", _DEVICES, ids=["cuda"])
 def test_checkpoint(device):
     start = time.time()
     output1, cnt1 = model_res(nn.Sequential, device)
