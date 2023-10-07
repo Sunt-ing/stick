@@ -246,13 +246,13 @@ def gradient_check(f, *args, tol=1e-1, backward=False, **kwargs):
     # for each child node
     for i in range(len(args)):
         # for each conponent in the child node
-        for j in range(args[i].realize_cached_data().size):
-            tmp = args[i].realize_cached_data().flat[j]
-            args[i].realize_cached_data().flat[j] += eps
+        for j in range(args[i].get_outputs().size):
+            tmp = args[i].get_outputs().flat[j]
+            args[i].get_outputs().flat[j] += eps
             f1 = float(f(*args, **kwargs).numpy().sum())
-            args[i].realize_cached_data().flat[j] -= 2 * eps
+            args[i].get_outputs().flat[j] -= 2 * eps
             f2 = float(f(*args, **kwargs).numpy().sum())
-            args[i].realize_cached_data().flat[j] = tmp
+            args[i].get_outputs().flat[j] = tmp
             numerical_grads[i].flat[j] = (f1 - f2) / (2 * eps)
     if not backward:
         # forward

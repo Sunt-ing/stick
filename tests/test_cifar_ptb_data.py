@@ -40,7 +40,7 @@ def test_cifar10_loader(batch_size, train, device):
     train_loader = stk.data.DataLoader(cifar10_train_dataset, batch_size)
     for (X, y) in train_loader:
         break
-    assert isinstance(X.realize_cached_data(), NDArray)
+    assert isinstance(X.get_outputs(), NDArray)
     assert isinstance(X, stk.Tensor)
     assert isinstance(y, stk.Tensor)
     assert X.dtype == 'float32'
@@ -64,6 +64,6 @@ def test_ptb_dataset(batch_size, bptt, train, device):
     assert isinstance(X, stk.Tensor)
     assert X.dtype == 'float32'
     assert X.device == device
-    assert isinstance(X.realize_cached_data(), NDArray)
+    assert isinstance(X.get_outputs(), NDArray)
     ntokens = len(corpus.dictionary)
     assert ntokens == 10000

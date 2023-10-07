@@ -24,18 +24,18 @@ def backward_check(f, *args, **kwargs):
     numerical_grad = [np.zeros(a.shape) for a in args]
     num_args = len(args)
     for i in range(num_args):
-        for j in range(args[i].realize_cached_data().size):
-            args[i].realize_cached_data().flat[j] += eps
+        for j in range(args[i].get_outputs().size):
+            args[i].get_outputs().flat[j] += eps
             if is_stacked:
                 f1 = (f(args, **kwargs).numpy() * c).sum()
             else:
                 f1 = (f(*args, **kwargs).numpy() * c).sum()
-            args[i].realize_cached_data().flat[j] -= 2 * eps
+            args[i].get_outputs().flat[j] -= 2 * eps
             if is_stacked:
                 f2 = (f(args, **kwargs).numpy() * c).sum()
             else:
                 f2 = (f(*args, **kwargs).numpy() * c).sum()
-            args[i].realize_cached_data().flat[j] += eps
+            args[i].get_outputs().flat[j] += eps
             numerical_grad[i].flat[j] = (f1 - f2) / (2 * eps)
     backward_grad = out.op.gradient_as_tuple(stk.Tensor(c, device=args[0].device), out)
     if isinstance(backward_grad[0], stk.TensorTuple): # TODO keep this?
@@ -329,9 +329,9 @@ def test_stack_vs_pytorch():
     Yndl.backward()
     Ytch.backward()
 
-    assert np.linalg.norm(Andl.grad.realize_cached_data().numpy() - Atch.grad.detach().numpy()) < 1e-3
-    assert np.linalg.norm(Bndl.grad.realize_cached_data().numpy() - Btch.grad.detach().numpy()) < 1e-3
-    assert np.linalg.norm(Cndl.grad.realize_cached_data().numpy() - Ctch.grad.detach().numpy()) < 1e-3
+    assert np.linalg.norm(Andl.grad.get_outputs().numpy() - Atch.grad.detach().numpy()) < 1e-3
+    assert np.linalg.norm(Bndl.grad.get_outputs().numpy() - Btch.grad.detach().numpy()) < 1e-3
+    assert np.linalg.norm(Cndl.grad.get_outputs().numpy() - Ctch.grad.detach().numpy()) < 1e-3
 
 
 

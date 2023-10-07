@@ -1,4 +1,5 @@
 import sys, time, math
+import heapq
     
 def get_limit():
     # TODO: read config file
@@ -41,7 +42,7 @@ class Dtr:
         min_score = sys.maxsize
         min_tensor = None
         now = time.perf_counter()
-        n = math.sqrt(len(Dtr.tensors))
+        n = int(math.sqrt(len(Dtr.tensors)))
 
         for i, (tensor, (ts, mem, cost)) in enumerate(Dtr.tensors.items()):
             if i % n != 0:
@@ -52,19 +53,27 @@ class Dtr:
                 min_tensor = tensor
         
         Dtr.del_tensor(min_tensor)
+    
+    def search_evict_by_top_n():
+        # evict 1% everytime
+        n = max(1, len(Dtr.tensors) // 100)
+        now = time.perf_counter()
+        items = list(Dtr.tensors.items())
+        sorted_items = heapq.nsmallest(n, items, key=lambda x: x[1][2] / ((now - x[1][0]) * x[1][1]))
+        for i in sorted_items:
+            Dtr.del_tensor(i[0])
         
     @staticmethod
     def add(tensor, ts, mem, cost):
-        # print("add: ", ts, mem, cost)
         assert tensor not in Dtr.tensors
 
         # ts: timestamp
         Dtr.tensors[tensor] = (ts, mem, cost)
         Dtr.mem_cnt += mem
-        # print("mem_cnt: ", Dtr.mem_cnt)
         while Dtr.mem_cnt >= Dtr.mem_limit:
             # Dtr.search_evict()
-            Dtr.search_evict_by_sampling()
+            # Dtr.search_evict_by_sampling()
+            Dtr.search_evict_by_top_n()
 
     @staticmethod
     def get_obj(tensor):
