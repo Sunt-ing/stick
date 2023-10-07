@@ -1,8 +1,10 @@
+# Reference: https://openreview.net/pdf?id=Vfs_2RnOD0H
+
 import sys, time, math
 import heapq
     
 def get_limit():
-    # TODO: read config file
+    # TODO: read the config file
     return 0
 
 class Dtr:
@@ -54,7 +56,13 @@ class Dtr:
         
         Dtr.del_tensor(min_tensor)
     
+    @staticmethod
     def search_evict_by_top_n():
+        """
+        This function has no reference, so we might be the first proposer and it may not work.
+        But it's very fast in our test and may have theoritical bound, so I set it as default.
+        """
+
         # evict 1% everytime
         n = max(1, len(Dtr.tensors) // 100)
         now = time.perf_counter()

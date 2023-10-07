@@ -7,8 +7,9 @@ Stick is an educational deep learning framework. The skeleton of this repository
 - Automatic differentiation
 - CPU (C++) and GPU (CUDA) NDArray backends
 - Checkpointing (rematerialization)
+- Dynamic tensor rematerialization (DTR)
 
-The feature checkpointing is an implementation of [a paper](https://arxiv.org/abs/1604.06174) by Tianqi Chen. It serves as an example of implementing research ideas on a DIY deep learning framework. Other features are NEcessary Elements for Deep LEarning (NEEDLE).
+The features checkpointing and DTR are from [Tianqi Chen's paper](https://arxiv.org/abs/1604.06174) and [Marisa Kirisame's paper](https://openreview.net/pdf?id=Vfs_2RnOD0H), respectively. They serve as examples of implementing research ideas on a DIY deep learning framework. Other features are NEcessary Elements for Deep LEarning (NEEDLE).
 
 ## How To Run
 
