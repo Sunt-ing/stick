@@ -151,6 +151,7 @@ class NDArray:
         array._offset = offset
         array._device = device if device is not None else default_device()
         if handle is None:
+            # Array is from CUDA
             array._handle = array.device.Array(prod(shape))
         else:
             array._handle = handle
@@ -206,6 +207,9 @@ class NDArray:
         return self.device.to_numpy(
             self._handle, self.shape, self.strides, self._offset
         )
+
+    def internal_size(self):
+        return self._handle.size
 
     def is_compact(self):
         """Return true if array is compact in memory and internal size equals product
@@ -379,6 +383,8 @@ class NDArray:
                 for i, s in enumerate(idxs)
             ]
         )
+        # print("self.ndim", self.ndim)
+        # print("len(idxs)", len(idxs))
         assert len(idxs) == self.ndim, "Need indexes equal to number of dimensions"
 
         ### BEGIN YOUR SOLUTION
@@ -520,7 +526,7 @@ class NDArray:
         """
 
         # (Ting): we currently do not support batched matmul.
-        print("self.shape",self.shape)
+        # print("self.shape",self.shape)
         assert self.ndim == 2 and other.ndim == 2
         assert self.shape[1] == other.shape[0]
 
@@ -551,7 +557,7 @@ class NDArray:
 
         else:
             out = NDArray.make((m, p), device=self.device)
-            print(self.compact()._handle, other.compact()._handle, out._handle, m, n, p)
+            # print(self.compact()._handle, other.compact()._handle, out._handle, m, n, p)
             self.device.matmul(
                 self.compact()._handle, other.compact()._handle, out._handle, m, n, p
             )

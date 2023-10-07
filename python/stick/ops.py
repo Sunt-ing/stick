@@ -1,12 +1,14 @@
 """Basic operators and automatic differentiation."""
 from typing import Any, List, Optional, Tuple, Union
-import numpy
+import numpy, time
 from .backend_selection import *
+from .dtr import Dtr
 
 LAZY_MODE = False
 TENSOR_COUNTER = 0
 ENABLE_GRAD = True
 CHECKPOINT_MODE = False
+ENABLE_DTR = False
 
 
 # introduced to impl checkpointing
@@ -82,21 +84,42 @@ class Value:
     inputs: List["Value"]
     # The following fields are cached fields for dynamic computation.
     # Can be used to impl checkpointing / rematerialization.
-    cached_data: NDArray
+    outputs: NDArray
     requires_grad: bool
 
-    def realize_cached_data(self):
+    # return the data size in GPU
+    def internal_size(self, data):
+        if isinstance(data, NDArray):
+            return data.internal_size()
+        
+        assert isinstance(data, tuple)
+        assert isinstance(self.op, MakeTensorTuple) or isinstance(self.op, Split)
+
+        size = 0
+        for datum in data:
+            size += datum.internal_size()
+        return size
+
+    def get_outputs(self):
         """Run compute to realize the cached data"""
-        # avoid recomputation
-        if self.cached_data is not None:
+        if self.outputs is not None:
+            # add trace
             return self.cached_data
+        
         # note: data implicitly calls realized cached data
-        data = self.op.compute(
-            *[x.realize_cached_data() for x in self.inputs]
-        )
+        inputs = [x.get_outputs() for x in self.inputs]
+        start = time.perf_counter()
+        data = self.op.compute(*inputs)
+        cost = time.perf_counter() - start
+
         # ENABLE_GRAD is controlled by checkpointing
         if (not CHECKPOINT_MODE) or (self.requires_grad and ENABLE_GRAD):
-            self.cached_data = data
+            self.outputs = data
+        
+        if ENABLE_DTR:
+            ts = time.perf_counter()
+            mem = self.internal_size(data)
+            Dtr.add(self, ts, mem, cost)
         return data
 
     def is_leaf(self):
@@ -112,7 +135,7 @@ class Value:
         inputs: List["Tensor"],
         *,
         num_outputs: int = 1,
-        cached_data: List[object] = None,
+        outputs: List[object] = None,
         requires_grad: Optional[bool] = None
     ):
         global TENSOR_COUNTER
@@ -122,8 +145,15 @@ class Value:
         self.op = op
         self.inputs = inputs
         self.num_outputs = num_outputs
-        self.cached_data = cached_data
+        self.outputs = outputs
         self.requires_grad = requires_grad
+
+    @property
+    def cached_data(self):
+        if ENABLE_DTR:
+            return Dtr.get_obj(self)
+        else:
+            return self.outputs
 
     @classmethod
     def make_const(cls, data, *, requires_grad=False):
@@ -131,7 +161,7 @@ class Value:
         value._init(
             None,
             [],
-            cached_data=data,
+            outputs=data,
             requires_grad=requires_grad,
         )
         return value
@@ -144,11 +174,11 @@ class Value:
         if not LAZY_MODE:
             if not value.requires_grad:
                 return value.detach()
-            value.realize_cached_data()
+            value.get_outputs()
         return value
 
     def numpy(self):
-        data = self.realize_cached_data()
+        data = self.get_outputs()
         if array_api is numpy:
             return data
         return data.numpy() if not isinstance(data, tuple) else [x.numpy() for x in data]
@@ -172,20 +202,20 @@ class Tensor(Value):
             if dtype is None:
                 dtype = array.dtype
             if device == array.device and dtype == array.dtype:
-                cached_data = array.realize_cached_data()
+                outputs = array.get_outputs()
             else:
                 # fall back, copy through numpy conversion
-                cached_data = Tensor._array_from_numpy(
+                outputs = Tensor._array_from_numpy(
                     array.numpy(), device=device, dtype=dtype
                 )
         else:
             device = device if device else default_device()
-            cached_data = Tensor._array_from_numpy(array, device=device, dtype=dtype)
+            outputs = Tensor._array_from_numpy(array, device=device, dtype=dtype)
 
         self._init(
             None,
             [],
-            cached_data=cached_data,
+            outputs=outputs,
             requires_grad=requires_grad,
         )
 
@@ -202,7 +232,7 @@ class Tensor(Value):
         if not LAZY_MODE:
             if (not tensor.requires_grad) or (CHECKPOINT_MODE and not ENABLE_GRAD):
                 return tensor.detach()
-            tensor.realize_cached_data()
+            tensor.get_outputs()
         return tensor
 
     @staticmethod
@@ -211,9 +241,9 @@ class Tensor(Value):
         tensor._init(
             None,
             [],
-            cached_data=data
+            outputs=data
                 if not isinstance(data, Tensor)
-                else data.realize_cached_data(),
+                else data.get_outputs(),
             requires_grad=requires_grad,
         )
         return tensor
@@ -229,23 +259,24 @@ class Tensor(Value):
             value.dtype,
             self.dtype,
         )
-        self.cached_data = value.realize_cached_data()
+        # not DTR as the time cost is unknown and the data can be unrecoverable
+        self.outputs = value.get_outputs()
 
     def detach(self):
         """Create a new tensor that shares the data but detaches from the graph."""
-        return Tensor.make_const(self.realize_cached_data())
+        return Tensor.make_const(self.get_outputs())
 
     @property
     def shape(self):
-        return self.realize_cached_data().shape
+        return self.get_outputs().shape
 
     @property
     def dtype(self):
-        return self.realize_cached_data().dtype
+        return self.get_outputs().dtype
 
     @property
     def device(self):
-        data = self.realize_cached_data()
+        data = self.get_outputs()
         if array_api is numpy:
             return default_device()
         return data.device
@@ -261,10 +292,10 @@ class Tensor(Value):
         compute_gradient_of_variables(self, out_grad)
 
     def __repr__(self):
-        return "stick.Tensor(" + str(self.realize_cached_data()) + ")"
+        return "stick.Tensor(" + str(self.get_outputs()) + ")"
 
     def __str__(self):
-        return self.realize_cached_data().__str__()
+        return self.get_outputs().__str__()
 
     def __add__(self, other):
         if isinstance(other, Tensor):
@@ -336,7 +367,7 @@ class TensorTuple(Value):
     """
 
     def __len__(self):
-        cdata = self.realize_cached_data()
+        cdata = self.get_outputs()
         return len(cdata)
 
     def __getitem__(self, index: int):
@@ -358,7 +389,7 @@ class TensorTuple(Value):
 
     def detach(self):
         """Create a new tensor that shares the data but detaches from the graph."""
-        return TensorTuple.make_const(self.realize_cached_data())
+        return TensorTuple.make_const(self.get_outputs())
 
 
 class TensorOp(Op):
@@ -790,7 +821,7 @@ class ReLU(TensorOp):
 
     def gradient(self, out_grad, node):
         ### BEGIN YOUR SOLUTION
-        return out_grad * Tensor(node.realize_cached_data() > 0, dtype="float32", device=node.device, requires_grad=False)
+        return out_grad * Tensor(node.get_outputs() > 0, dtype="float32", device=node.device, requires_grad=False)
         ### END YOUR SOLUTION
 
 
@@ -824,7 +855,7 @@ class LogSumExp(TensorOp):
     def gradient(self, out_grad, node):
         ### BEGIN YOUR SOLUTION
         z = node.inputs[0]
-        z_max_dim = Tensor(z.realize_cached_data().max(self.axes, keepdims=True), device=z.device, requires_grad=False)
+        z_max_dim = Tensor(z.get_outputs().max(self.axes, keepdims=True), device=z.device, requires_grad=False)
         z_exp = exp(z + (-z_max_dim).broadcast_to(z.shape))
         z_exp_sum = summation(z_exp, axes=self.axes)
         grad_z_exp_sum = out_grad / z_exp_sum

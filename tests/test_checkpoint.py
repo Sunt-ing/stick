@@ -43,17 +43,17 @@ def model_res(TestModule, device):
     return ret, cnt
 
 
-_DEVICES = [stk.cpu(), pytest.param(stk.cuda(),
+_DEVICES = [pytest.param(stk.cuda(),
     marks=pytest.mark.skipif(not stk.cuda().enabled(), reason="No GPU"))]
 
 
 @pytest.mark.parametrize("device", _DEVICES, ids=["cuda"])
 def test_checkpoint(device):
-    start = time.time()
+    start = time.perf_counter()
     output1, cnt1 = model_res(nn.Sequential, device)
-    mid = time.time()
+    mid = time.perf_counter()
     output2, cnt2 = model_res(checkpoint.Memonger, device)
-    end = time.time()
+    end = time.perf_counter()
     dur1 = "{:.5f}".format(mid - start)
     dur2 = "{:.5f}".format(end - mid)
     
