@@ -2,6 +2,8 @@
 
 import sys
 sys.path.append('./python')
+sys.path.append('./apps')
+from models import ResNet9
 import numpy as np
 import pytest
 from stick import backend_ndarray as nd
@@ -175,7 +177,6 @@ def test_resnet9(device):
     def num_params(model):
         return np.sum([np.prod(x.shape) for x in model.parameters()])
 
-    from apps.models import ResNet9
     np.random.seed(0)
     model = ResNet9(device=device)
 
@@ -328,9 +329,9 @@ def test_stack_vs_pytorch():
     Yndl.backward()
     Ytch.backward()
 
-    assert np.linalg.norm(Andl.grad.cached_data.numpy() - Atch.grad.detach().numpy()) < 1e-3
-    assert np.linalg.norm(Bndl.grad.cached_data.numpy() - Btch.grad.detach().numpy()) < 1e-3
-    assert np.linalg.norm(Cndl.grad.cached_data.numpy() - Ctch.grad.detach().numpy()) < 1e-3
+    assert np.linalg.norm(Andl.grad.realize_cached_data().numpy() - Atch.grad.detach().numpy()) < 1e-3
+    assert np.linalg.norm(Bndl.grad.realize_cached_data().numpy() - Btch.grad.detach().numpy()) < 1e-3
+    assert np.linalg.norm(Cndl.grad.realize_cached_data().numpy() - Ctch.grad.detach().numpy()) < 1e-3
 
 
 
@@ -350,11 +351,11 @@ def test_nn_conv_forward(s, cin, cout, k, stride, device):
     x = stk.init.rand(10, cin, s, s, device=device)
 
     g = torch.nn.Conv2d(cin, cout, k, stride=stride, padding=k//2)
-    g.weight.data = torch.tensor(f.weight.cached_data.numpy().transpose(3, 2, 0, 1))
-    g.bias.data = torch.tensor(f.bias.cached_data.numpy())
-    z = torch.tensor(x.cached_data.numpy())
+    g.weight.data = torch.tensor(f.weight.outputs.numpy().transpose(3, 2, 0, 1))
+    g.bias.data = torch.tensor(f.bias.outputs.numpy())
+    z = torch.tensor(x.outputs.numpy())
 
-    assert np.linalg.norm(f(x).cached_data.numpy() - g(z).data.numpy()) < 1e-3
+    assert np.linalg.norm(f(x).outputs.numpy() - g(z).data.numpy()) < 1e-3
 
 
 conv_back_params = [
@@ -375,9 +376,9 @@ def test_nn_conv_backward(s, cin, cout, k, stride, device):
     x = stk.init.rand(1, cin, s, s, device=device, requires_grad=True)
 
     g = torch.nn.Conv2d(cin, cout, k, stride=stride, padding=k//2)
-    g.weight.data = torch.tensor(f.weight.cached_data.numpy().transpose(3, 2, 0, 1))
-    g.bias.data = torch.tensor(f.bias.cached_data.numpy())
-    z = torch.tensor(x.cached_data.numpy(), requires_grad=True)
+    g.weight.data = torch.tensor(f.weight.outputs.numpy().transpose(3, 2, 0, 1))
+    g.bias.data = torch.tensor(f.bias.outputs.numpy())
+    z = torch.tensor(x.outputs.numpy(), requires_grad=True)
     z.requires_grad = True
 
     res1 = f(x)
@@ -388,9 +389,9 @@ def test_nn_conv_backward(s, cin, cout, k, stride, device):
     y1.backward()
     y2.backward()
 
-    assert np.linalg.norm(g.weight.grad.data.numpy() - f.weight.grad.cached_data.numpy().transpose(3, 2, 0, 1)) < 1e-3, "weight gradients match"
-    assert np.linalg.norm(g.bias.grad.data.numpy() - f.bias.grad.cached_data.numpy()) < 1e-3, "bias gradients match"
-    assert np.linalg.norm(z.grad.data.numpy() - x.grad.cached_data.numpy()) < 1e-3, "input gradients match"
+    assert np.linalg.norm(g.weight.grad.data.numpy() - f.weight.grad.outputs.numpy().transpose(3, 2, 0, 1)) < 1e-3, "weight gradients match"
+    assert np.linalg.norm(g.bias.grad.data.numpy() - f.bias.grad.outputs.numpy()) < 1e-3, "bias gradients match"
+    assert np.linalg.norm(z.grad.data.numpy() - x.grad.outputs.numpy()) < 1e-3, "input gradients match"
 
 
 op_conv_shapes = [
@@ -461,7 +462,6 @@ def test_train_cifar10(device):
              # device=device,
              # dtype="float32"
              )
-    from apps.models import ResNet9
     np.random.seed(0)
     model = ResNet9(device=device, dtype="float32")
     out = one_iter_of_cifar10_training(dataloader, model, opt=stk.optim.Adam(model.parameters(), lr=0.001, weight_decay=0.001), device=device)

@@ -23,7 +23,7 @@ def check_prng(*shape):
         Such that our tests will make sense
         So this matrix should match our to full precision
     """
-    return get_tensor(*shape).cached_data.numpy()
+    return get_tensor(*shape).outputs.numpy()
 
 def batchnorm_forward(*shape, affine=False):
     x = get_tensor(*shape)
@@ -31,7 +31,7 @@ def batchnorm_forward(*shape, affine=False):
     if affine:
         bn.weight.data = get_tensor(shape[1], entropy=42)
         bn.bias.data = get_tensor(shape[1], entropy=1337)
-    return bn(x).cached_data.numpy()
+    return bn(x).outputs.numpy()
 
 def batchnorm_backward(*shape, affine=False):
     x = get_tensor(*shape)
@@ -40,18 +40,18 @@ def batchnorm_backward(*shape, affine=False):
         bn.weight.data = get_tensor(shape[1], entropy=42)
         bn.bias.data = get_tensor(shape[1], entropy=1337)
     y = (bn(x)**2).sum().backward()
-    return x.grad.cached_data.numpy()
+    return x.grad.outputs.numpy()
 
 def flatten_forward(*shape):
     x = get_tensor(*shape)
     tform = stk.nn.Flatten()
-    return tform(x).cached_data.numpy()
+    return tform(x).outputs.numpy()
 
 def flatten_backward(*shape):
     x = get_tensor(*shape)
     tform = stk.nn.Flatten()
     (tform(x)**2).sum().backward()
-    return x.grad.cached_data.numpy()
+    return x.grad.outputs.numpy()
 
 
 
@@ -60,14 +60,14 @@ def batchnorm_running_mean(*shape, iters=10):
     for i in range(iters):
         x = get_tensor(*shape, entropy=i)
         y = bn(x)
-    return bn.running_mean.cached_data.numpy()
+    return bn.running_mean.outputs.numpy()
 
 def batchnorm_running_var(*shape, iters=10):
     bn = stk.nn.BatchNorm1d(shape[1])
     for i in range(iters):
         x = get_tensor(*shape, entropy=i)
         y = bn(x)
-    return bn.running_var.cached_data.numpy()
+    return bn.running_var.outputs.numpy()
 
 def batchnorm_running_grad(*shape, iters=10):
     bn = stk.nn.BatchNorm1d(shape[1])
@@ -76,35 +76,35 @@ def batchnorm_running_grad(*shape, iters=10):
         y = bn(x)
     bn.eval()
     (y**2).sum().backward()
-    return x.grad.cached_data.numpy()
+    return x.grad.outputs.numpy()
 
 def relu_forward(*shape):
     f = stk.nn.ReLU()
     x = get_tensor(*shape)
-    return f(x).cached_data.numpy()
+    return f(x).outputs.numpy()
 
 def relu_backward(*shape):
     f = stk.nn.ReLU()
     x = get_tensor(*shape)
     (f(x)**2).sum().backward()
-    return x.grad.cached_data.numpy()
+    return x.grad.outputs.numpy()
 
 def layernorm_forward(shape, dim):
     f = stk.nn.LayerNorm1d(dim)
     x = get_tensor(*shape)
-    return f(x).cached_data.numpy()
+    return f(x).outputs.numpy()
 
 def layernorm_backward(shape, dims):
     f = stk.nn.LayerNorm1d(dims)
     x = get_tensor(*shape)
     (f(x)**4).sum().backward()
-    return x.grad.cached_data.numpy()
+    return x.grad.outputs.numpy()
 
 def softmax_loss_forward(rows, classes):
     x = get_tensor(rows, classes)
     y = get_int_tensor(rows, low=0, high=classes)
     f = stk.nn.SoftmaxLoss()
-    return np.array(f(x, y).cached_data.numpy())
+    return np.array(f(x, y).outputs.numpy())
 
 def softmax_loss_backward(rows, classes):
     x = get_tensor(rows, classes)
@@ -112,14 +112,14 @@ def softmax_loss_backward(rows, classes):
     f = stk.nn.SoftmaxLoss()
     loss = f(x, y)
     loss.backward()
-    return x.grad.cached_data.numpy()
+    return x.grad.outputs.numpy()
 
 def linear_forward(lhs_shape, rhs_shape):
     np.random.seed(199)
     f = stk.nn.Linear(*lhs_shape)
     f.bias.data = get_tensor(lhs_shape[-1])
     x = get_tensor(*rhs_shape)
-    return f(x).cached_data.numpy()
+    return f(x).outputs.numpy()
 
 def linear_backward(lhs_shape, rhs_shape):
     np.random.seed(199)
@@ -127,39 +127,39 @@ def linear_backward(lhs_shape, rhs_shape):
     f.bias.data = get_tensor(lhs_shape[-1])
     x = get_tensor(*rhs_shape)
     (f(x)**2).sum().backward()
-    return x.grad.cached_data.numpy()
+    return x.grad.outputs.numpy()
 
 def sequential_forward(batches=3):
     np.random.seed(42)
     f = nn.Sequential(nn.Linear(5, 8), nn.ReLU(), nn.Linear(8, 5))
     x = get_tensor(batches, 5)
-    return f(x).cached_data.numpy()
+    return f(x).outputs.numpy()
 
 def sequential_backward(batches=3):
     np.random.seed(42)
     f = nn.Sequential(nn.Linear(5, 8), nn.ReLU(), nn.Linear(8, 5))
     x = get_tensor(batches, 5)
     f(x).sum().backward()
-    return x.grad.cached_data.numpy()
+    return x.grad.outputs.numpy()
 
 def residual_forward(shape=(5,5)):
     np.random.seed(42)
     f = nn.Residual(nn.Sequential(nn.Linear(*shape), nn.ReLU(), nn.Linear(*shape[::-1])))
     x = get_tensor(*shape[::-1])
-    return f(x).cached_data.numpy()
+    return f(x).outputs.numpy()
 
 def residual_backward(shape=(5,5)):
     np.random.seed(42)
     f = nn.Residual(nn.Sequential(nn.Linear(*shape), nn.ReLU(), nn.Linear(*shape[::-1])))
     x = get_tensor(*shape[::-1])
     f(x).sum().backward()
-    return x.grad.cached_data.numpy()
+    return x.grad.outputs.numpy()
 
 def learn_model_1d(feature_size, nclasses, _model, optimizer, epochs=1, **kwargs):
     np.random.seed(42)
     model = _model([])
-    X = get_tensor(1024, feature_size).cached_data.numpy()
-    y = get_int_tensor(1024, low=0, high=nclasses).cached_data.numpy().astype(np.uint8)
+    X = get_tensor(1024, feature_size).outputs.numpy()
+    y = get_int_tensor(1024, low=0, high=nclasses).outputs.numpy().astype(np.uint8)
     m = X.shape[0]
     batch = 32
 
@@ -174,20 +174,20 @@ def learn_model_1d(feature_size, nclasses, _model, optimizer, epochs=1, **kwargs
             loss = loss_func(out, y0)
             loss.backward()
             # Opt should not change gradients.
-            grad_before = model.parameters()[0].grad.detach().cached_data.numpy()
+            grad_before = model.parameters()[0].grad.detach().outputs.numpy()
             opt.step()
-            grad_after = model.parameters()[0].grad.detach().cached_data.numpy()
+            grad_after = model.parameters()[0].grad.detach().outputs.numpy()
             np.testing.assert_allclose(grad_before, grad_after, rtol=1e-5, atol=1e-5, \
                                        err_msg="Optim should not modify gradients in place")
 
 
-    return np.array(loss.cached_data.numpy())
+    return np.array(loss.outputs.numpy())
 
 def learn_model_1d_eval(feature_size, nclasses, _model, optimizer, epochs=1, **kwargs):
     np.random.seed(42)
     model = _model([])
-    X = get_tensor(1024, feature_size).cached_data.numpy()
-    y = get_int_tensor(1024, low=0, high=nclasses).cached_data.numpy().astype(np.uint8)
+    X = get_tensor(1024, feature_size).outputs.numpy()
+    y = get_int_tensor(1024, low=0, high=nclasses).outputs.numpy().astype(np.uint8)
     m = X.shape[0]
     batch = 32
 
@@ -202,18 +202,18 @@ def learn_model_1d_eval(feature_size, nclasses, _model, optimizer, epochs=1, **k
         loss.backward()
         opt.step()
 
-    X_test = stk.Tensor(get_tensor(batch, feature_size).cached_data)
-    y_test = stk.Tensor(get_int_tensor(batch, low=0, high=nclasses).cached_data.numpy().astype(np.uint8))
+    X_test = stk.Tensor(get_tensor(batch, feature_size).outputs)
+    y_test = stk.Tensor(get_int_tensor(batch, low=0, high=nclasses).outputs.numpy().astype(np.uint8))
 
     model.eval()
 
-    return np.array(loss_func(model(X_test), y_test).cached_data.numpy())
+    return np.array(loss_func(model(X_test), y_test).outputs.numpy())
 
 def init_a_tensor_of_shape(shape, init_fn):
     x = get_tensor(*shape)
     np.random.seed(42)
     init_fn(x)
-    return x.cached_data.numpy()
+    return x.outputs.numpy()
 
 def global_tensor_count():
     return np.array(stk.ops.TENSOR_COUNTER)
@@ -221,12 +221,12 @@ def global_tensor_count():
 def nn_linear_weight_init():
     np.random.seed(1337)
     f = stk.nn.Linear(7, 4)
-    return f.weight.cached_data.numpy()
+    return f.weight.outputs.numpy()
 
 def nn_linear_bias_init():
     np.random.seed(1337)
     f = stk.nn.Linear(7, 4)
-    return f.bias.cached_data.numpy()
+    return f.bias.outputs.numpy()
 
 class UselessModule(stk.nn.Module):
     def __init__(self):
@@ -271,30 +271,30 @@ def check_training_mode():
 
 def power_scalar_forward(shape, power=2):
     x = get_tensor(*shape)
-    return (x**power).cached_data.numpy()
+    return (x**power).outputs.numpy()
 
 def power_scalar_backward(shape, power=2):
     x = get_tensor(*shape)
     y = (x**power).sum()
     y.backward()
-    return x.grad.cached_data.numpy()
+    return x.grad.outputs.numpy()
 
 def logsumexp_forward(shape, axes):
     x = get_tensor(*shape)
-    return (stk.ops.logsumexp(x,axes=axes)).cached_data.numpy()
+    return (stk.ops.logsumexp(x,axes=axes)).outputs.numpy()
 
 def logsumexp_backward(shape, axes):
     x = get_tensor(*shape)
     y = (stk.ops.logsumexp(x, axes=axes)**2).sum()
     y.backward()
-    return x.grad.cached_data.numpy()
+    return x.grad.outputs.numpy()
 
 
 def dropout_forward(shape, prob=0.5):
     np.random.seed(3)
     x = get_tensor(*shape)
     f = nn.Dropout(prob)
-    return f(x).cached_data.numpy()
+    return f(x).outputs.numpy()
 
 def dropout_backward(shape, prob=0.5):
     np.random.seed(3)
@@ -302,7 +302,7 @@ def dropout_backward(shape, prob=0.5):
     f = nn.Dropout(prob)
     y = f(x).sum()
     y.backward()
-    return x.grad.cached_data.numpy()
+    return x.grad.outputs.numpy()
 
 def num_params(model):
     return np.sum([np.prod(x.shape) for x in model.parameters()])
@@ -454,7 +454,7 @@ def test_op_logsumexp_backward_3():
 def test_op_logsumexp_backward_5():
     grad_compare = stk.Tensor(np.array([[1e10,1e9,1e8,-10],[1e-10,1e9,1e8,-10]]))
     test_data = (stk.ops.logsumexp(grad_compare, (0,))**2).sum().backward()
-    np.testing.assert_allclose(grad_compare.grad.cached_data.numpy(),np.array([[ 2.00000000e+10,  9.99999999e+08,  1.00000001e+08,
+    np.testing.assert_allclose(grad_compare.grad.outputs.numpy(),np.array([[ 2.00000000e+10,  9.99999999e+08,  1.00000001e+08,
         -9.30685282e+00],
        [ 0.00000000e+00,  9.99999999e+08,  1.00000001e+08,
         -9.30685282e+00]]), rtol=1e-5, atol=1e-5)

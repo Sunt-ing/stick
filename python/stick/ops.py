@@ -1,12 +1,14 @@
 """Basic operators and automatic differentiation."""
 from typing import Any, List, Optional, Tuple, Union
-import numpy
+import numpy, time
 from .backend_selection import *
+from .dtr import Dtr
 
 LAZY_MODE = False
 TENSOR_COUNTER = 0
 ENABLE_GRAD = True
 CHECKPOINT_MODE = False
+ENABLE_DTR = False
 
 
 # introduced to impl checkpointing
@@ -82,21 +84,42 @@ class Value:
     inputs: List["Value"]
     # The following fields are cached fields for dynamic computation.
     # Can be used to impl checkpointing / rematerialization.
-    cached_data: NDArray
+    outputs: NDArray
     requires_grad: bool
+
+    # return the data size in GPU
+    def internal_size(self, data):
+        if isinstance(data, NDArray):
+            return data.internal_size()
+        
+        assert isinstance(data, tuple)
+        assert isinstance(self.op, MakeTensorTuple) or isinstance(self.op, Split)
+
+        size = 0
+        for datum in data:
+            size += datum.internal_size()
+        return size
 
     def realize_cached_data(self):
         """Run compute to realize the cached data"""
-        # avoid recomputation
-        if self.cached_data is not None:
+        if self.outputs is not None:
+            # add trace
             return self.cached_data
+        
         # note: data implicitly calls realized cached data
-        data = self.op.compute(
-            *[x.realize_cached_data() for x in self.inputs]
-        )
+        inputs = [x.realize_cached_data() for x in self.inputs]
+        start = time.perf_counter()
+        data = self.op.compute(*inputs)
+        cost = time.perf_counter() - start
+
         # ENABLE_GRAD is controlled by checkpointing
         if (not CHECKPOINT_MODE) or (self.requires_grad and ENABLE_GRAD):
-            self.cached_data = data
+            self.outputs = data
+        
+        if ENABLE_DTR:
+            ts = time.perf_counter()
+            mem = self.internal_size(data)
+            Dtr.add(self, ts, mem, cost)
         return data
 
     def is_leaf(self):
@@ -112,7 +135,7 @@ class Value:
         inputs: List["Tensor"],
         *,
         num_outputs: int = 1,
-        cached_data: List[object] = None,
+        outputs: List[object] = None,
         requires_grad: Optional[bool] = None
     ):
         global TENSOR_COUNTER
@@ -122,8 +145,15 @@ class Value:
         self.op = op
         self.inputs = inputs
         self.num_outputs = num_outputs
-        self.cached_data = cached_data
+        self.outputs = outputs
         self.requires_grad = requires_grad
+
+    @property
+    def cached_data(self):
+        if ENABLE_DTR:
+            return Dtr.get_obj(self)
+        else:
+            return self.outputs
 
     @classmethod
     def make_const(cls, data, *, requires_grad=False):
@@ -131,7 +161,7 @@ class Value:
         value._init(
             None,
             [],
-            cached_data=data,
+            outputs=data,
             requires_grad=requires_grad,
         )
         return value
@@ -172,20 +202,20 @@ class Tensor(Value):
             if dtype is None:
                 dtype = array.dtype
             if device == array.device and dtype == array.dtype:
-                cached_data = array.realize_cached_data()
+                outputs = array.realize_cached_data()
             else:
                 # fall back, copy through numpy conversion
-                cached_data = Tensor._array_from_numpy(
+                outputs = Tensor._array_from_numpy(
                     array.numpy(), device=device, dtype=dtype
                 )
         else:
             device = device if device else default_device()
-            cached_data = Tensor._array_from_numpy(array, device=device, dtype=dtype)
+            outputs = Tensor._array_from_numpy(array, device=device, dtype=dtype)
 
         self._init(
             None,
             [],
-            cached_data=cached_data,
+            outputs=outputs,
             requires_grad=requires_grad,
         )
 
@@ -211,7 +241,7 @@ class Tensor(Value):
         tensor._init(
             None,
             [],
-            cached_data=data
+            outputs=data
                 if not isinstance(data, Tensor)
                 else data.realize_cached_data(),
             requires_grad=requires_grad,
@@ -229,7 +259,8 @@ class Tensor(Value):
             value.dtype,
             self.dtype,
         )
-        self.cached_data = value.realize_cached_data()
+        # not DTR as the time cost is unknown and the data can be unrecoverable
+        self.outputs = value.realize_cached_data()
 
     def detach(self):
         """Create a new tensor that shares the data but detaches from the graph."""
