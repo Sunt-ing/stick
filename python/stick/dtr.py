@@ -3,7 +3,8 @@
 import sys, time, math
 import heapq
 from typing import Any
-import ops
+
+ENABLE_DTR = False
 
 
 class enable_dtr:
@@ -11,11 +12,13 @@ class enable_dtr:
         self.enable = enable
 
     def __enter__(self) -> None:
-        self.prev = ops.ENABLE_DTR
-        ops.ENABLE_DTR = self.enable
+        global ENABLE_DTR
+        self.prev = ENABLE_DTR
+        ENABLE_DTR = self.enable
 
     def __exit__(self, exc_type: Any, exc_value: Any, traceback: Any) -> None:
-        ops.ENABLE_DTR = self.prev
+        global ENABLE_DTR
+        ENABLE_DTR = self.prev
     
 
 def get_limit():
@@ -94,9 +97,9 @@ class Dtr:
         Dtr.tensors[tensor] = (ts, mem, cost)
         Dtr.mem_cnt += mem
         while Dtr.mem_cnt >= Dtr.mem_limit:
-            # Dtr.search_evict()
+            Dtr.search_evict()
             # Dtr.search_evict_by_sampling()
-            Dtr.search_evict_by_top_n()
+            # Dtr.search_evict_by_top_n()
 
     @staticmethod
     def get_obj(tensor):

@@ -1,5 +1,6 @@
 """The NN modules."""
-from . import ops, init
+
+from . import init, ops
 from .ops import Tensor
 import numpy as np
 from typing import List
