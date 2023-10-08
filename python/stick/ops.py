@@ -4,10 +4,10 @@ import numpy, time
 from .backend_selection import *
 from .dtr import Dtr
 
-LAZY_MODE = False
 TENSOR_COUNTER = 0
+LAZY_MODE = False
+ENABLE_CHECKPOINT = False
 ENABLE_GRAD = True
-CHECKPOINT_MODE = False
 ENABLE_DTR = False
 
 
@@ -108,22 +108,25 @@ class Value:
                 return Dtr.get_obj(self)
             else:
                 return self.outputs
-        
-        # note: data implicitly calls realized cached data
-        inputs = [x.get_outputs() for x in self.inputs]
-        start = time.perf_counter()
-        data = self.op.compute(*inputs)
-        cost = time.perf_counter() - start
+        # naive checkpointing
+        if ENABLE_CHECKPOINT and not ENABLE_GRAD:
+            return self.op.compute(*[x.get_outputs() for x in self.inputs])
+        # DTR
+        elif ENABLE_DTR:
+            inputs = [x.get_outputs() for x in self.inputs]
 
-        # ENABLE_GRAD is controlled by checkpointing
-        if (not CHECKPOINT_MODE) or (self.requires_grad and ENABLE_GRAD):
-            self.outputs = data
-        
-        if ENABLE_DTR:
-            ts = time.perf_counter()
-            mem = self.internal_size(data)
-            Dtr.add(self, ts, mem, cost)
-        return data
+            start = time.perf_counter()
+            self.outputs = self.op.compute(*inputs)
+            end = time.perf_counter()
+
+            mem1 = self.internal_size(self.outputs)
+            cost = end - start
+
+            Dtr.add(self, end, mem1, cost)
+        # normal
+        else:
+            self.outputs = self.op.compute(*[x.get_outputs() for x in self.inputs])
+            return self.outputs
 
     def is_leaf(self):
         return self.op is None
@@ -226,7 +229,7 @@ class Tensor(Value):
         tensor = Tensor.__new__(Tensor)
         tensor._init(op, inputs)
         if not LAZY_MODE:
-            if (not tensor.requires_grad) or (CHECKPOINT_MODE and not ENABLE_GRAD):
+            if (not tensor.requires_grad) or (ENABLE_CHECKPOINT and not ENABLE_GRAD):
                 return tensor.detach()
             tensor.get_outputs()
         return tensor

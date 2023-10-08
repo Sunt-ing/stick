@@ -14,7 +14,6 @@ import math
 
 class enable_grad:
     def __init__(self, enable) -> None:
-        self.prev = False
         self.enable = enable
 
     def __enter__(self) -> None:
@@ -80,9 +79,12 @@ def checkpoint(modules, input):
 
 class Memonger(Module):
     def __init__(self, *modules):
-        ops.CHECKPOINT_MODE = True
+        ops.ENABLE_CHECKPOINT = True
         super().__init__()
         self.modules = modules
+
+    def __del__(self):
+        ops.ENABLE_CHECKPOINT = False
 
     def forward(self, input: Tensor) -> Tensor:
         # To make the granularity finer, we can overide __setattr__ to track 

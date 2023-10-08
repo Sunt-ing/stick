@@ -3,7 +3,6 @@ sys.path.append("./python")
 import stick as stk
 from stick import checkpoint, nn
 import numpy as np
-from stick import backend_ndarray as nd
 import time, pytest
 
 
@@ -45,7 +44,6 @@ def model_res(TestModule, device):
 
 _DEVICES = [pytest.param(stk.cuda(),
     marks=pytest.mark.skipif(not stk.cuda().enabled(), reason="No GPU"))]
-
 
 @pytest.mark.parametrize("device", _DEVICES, ids=["cuda"])
 def test_checkpoint(device):

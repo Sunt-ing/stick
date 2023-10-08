@@ -2,7 +2,22 @@
 
 import sys, time, math
 import heapq
+from typing import Any
+import ops
+
+
+class enable_dtr:
+    def __init__(self, enable) -> None:
+        self.enable = enable
+
+    def __enter__(self) -> None:
+        self.prev = ops.ENABLE_DTR
+        ops.ENABLE_DTR = self.enable
+
+    def __exit__(self, exc_type: Any, exc_value: Any, traceback: Any) -> None:
+        ops.ENABLE_DTR = self.prev
     
+
 def get_limit():
     # TODO: read the config file
     return 0
