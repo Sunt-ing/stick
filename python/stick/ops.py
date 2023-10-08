@@ -104,7 +104,10 @@ class Value:
         """Run compute to realize the cached data"""
         if self.outputs is not None:
             # add trace
-            return self.cached_data
+            if ENABLE_DTR:
+                return Dtr.get_obj(self)
+            else:
+                return self.outputs
         
         # note: data implicitly calls realized cached data
         inputs = [x.get_outputs() for x in self.inputs]
@@ -147,13 +150,6 @@ class Value:
         self.num_outputs = num_outputs
         self.outputs = outputs
         self.requires_grad = requires_grad
-
-    @property
-    def cached_data(self):
-        if ENABLE_DTR:
-            return Dtr.get_obj(self)
-        else:
-            return self.outputs
 
     @classmethod
     def make_const(cls, data, *, requires_grad=False):
