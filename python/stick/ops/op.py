@@ -2,7 +2,8 @@
 
 from typing import Any, List, Optional, Tuple, Union
 import numpy, time
-from ..dtr import Dtr, ENABLE_DTR
+from ..dtr import Dtr
+from .. import dtr
 from ..backend_selection import *
 
 
@@ -103,29 +104,33 @@ class Value:
         """Run compute to realize the cached data"""
         if self.outputs is not None:
             # add trace
-            if ENABLE_DTR:
+            if dtr.ENABLE_DTR:
                 return Dtr.get_obj(self)
             else:
                 return self.outputs
+        
         # naive checkpointing
         if ENABLE_CHECKPOINT and not ENABLE_GRAD:
             return self.op.compute(*[x.get_outputs() for x in self.inputs])
+        
         # DTR
-        elif ENABLE_DTR:
+        if dtr.ENABLE_DTR:
             inputs = [x.get_outputs() for x in self.inputs]
 
             start = time.perf_counter()
-            self.outputs = self.op.compute(*inputs)
+            data = self.op.compute(*inputs)
             end = time.perf_counter()
+            self.outputs = data
 
             mem1 = self.internal_size(self.outputs)
             cost = end - start
 
             Dtr.add(self, end, mem1, cost)
+            return data
+        
         # normal
-        else:
-            self.outputs = self.op.compute(*[x.get_outputs() for x in self.inputs])
-            return self.outputs
+        self.outputs = self.op.compute(*[x.get_outputs() for x in self.inputs])
+        return self.outputs
 
     def is_leaf(self):
         return self.op is None

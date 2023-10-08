@@ -97,9 +97,9 @@ class Dtr:
         Dtr.tensors[tensor] = (ts, mem, cost)
         Dtr.mem_cnt += mem
         while Dtr.mem_cnt >= Dtr.mem_limit:
-            Dtr.search_evict()
+            # Dtr.search_evict()
             # Dtr.search_evict_by_sampling()
-            # Dtr.search_evict_by_top_n()
+            Dtr.search_evict_by_top_n()
 
     @staticmethod
     def get_obj(tensor):
