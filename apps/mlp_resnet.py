@@ -6,18 +6,19 @@ import numpy as np
 
 np.random.seed(0)
 
-def ResidualBlock(dim, hidden_dim, norm=nn.BatchNorm1d, drop_prob=0.1):
+def ResidualBlock(dim, hidden_dim, norm=nn.BatchNorm1d, drop_prob=0.1, device=None):
     ### BEGIN YOUR SOLUTION
-    seq = nn.Sequential(nn.Linear(dim, hidden_dim), norm(hidden_dim), nn.ReLU(), nn.Dropout(drop_prob), nn.Linear(hidden_dim, dim), norm(dim))
+    seq = nn.Sequential(nn.Linear(dim, hidden_dim, device=device), norm(hidden_dim), nn.ReLU(), 
+                        nn.Dropout(drop_prob), nn.Linear(hidden_dim, dim, device=device), norm(dim))
     return nn.Sequential(nn.Residual(seq), nn.ReLU())
     ### END YOUR SOLUTION
 
 
-def MLPResNet(dim, hidden_dim=100, num_blocks=3, num_classes=10, norm=nn.BatchNorm1d, drop_prob=0.1):
+def MLPResNet(dim, hidden_dim=100, num_blocks=3, num_classes=10, norm=nn.BatchNorm1d, drop_prob=0.1, device=None):
     ### BEGIN YOUR SOLUTION
-    linear1 = nn.Linear(dim, hidden_dim)
-    rbs = [ResidualBlock(hidden_dim, hidden_dim // 2, norm, drop_prob) for _ in range(num_blocks)]
-    linear2 = nn.Linear(hidden_dim, num_classes)
+    linear1 = nn.Linear(dim, hidden_dim, device=device)
+    rbs = [ResidualBlock(hidden_dim, hidden_dim // 2, norm, drop_prob, device=device) for _ in range(num_blocks)]
+    linear2 = nn.Linear(hidden_dim, num_classes, device=device)
     return nn.Sequential(linear1, nn.ReLU(), *rbs, linear2)
     ### END YOUR SOLUTION
 

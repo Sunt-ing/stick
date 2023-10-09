@@ -1,188 +1,8 @@
 """Basic operators and automatic differentiation."""
 from typing import Any, List, Optional, Tuple, Union
 import numpy, time
-from .backend_selection import *
-from .dtr import Dtr
-
-LAZY_MODE = False
-TENSOR_COUNTER = 0
-ENABLE_GRAD = True
-CHECKPOINT_MODE = False
-ENABLE_DTR = False
-
-
-# introduced to impl checkpointing
-class Function:
-    def __call__(self, *args, **kwargs):
-        raise NotImplementedError()
-    
-    def compute(self, *args: Any, **kwargs: Any) -> Any:
-        raise NotImplementedError()
-    
-    def gradient(self, *args: Any, **kwargs: Any) -> Any:
-        raise NotImplementedError()
-
-
-class Op(Function):
-    """Operator definition."""
-
-    def __call__(self, *args, **kwargs):
-        raise NotImplementedError()
-
-    def compute(self, *args: Tuple[NDArray], **kwargs):
-        """Calculate forward pass of operator.
-
-        Parameters
-        ----------
-        input: np.ndarray
-            A list of input arrays to the function
-
-        Returns
-        -------
-        output: nd.array
-            Array output of the operation
-
-        """
-        raise NotImplementedError()
-
-    def gradient(
-        self, out_grad: "Value", node: "Value"
-    ) -> Union["Value", Tuple["Value"]]:
-        """Compute partial adjoint for each input value for a given output adjoint.
-
-        Parameters
-        ----------
-        out_grad: Value
-            The adjoint wrt to the output value.
-
-        node: Value
-            The value node of forward evaluation.
-
-        Returns
-        -------
-        input_grads: Value or Tuple[Value]
-            A list containing partial gradient adjoints to be propagated to
-            each of the input node.
-        """
-        raise NotImplementedError()
-
-    def gradient_as_tuple(self, out_grad: "Value", node: "Value") -> Tuple["Value"]:
-        """ Convenience method to always return a tuple from gradient call"""
-        output = self.gradient(out_grad, node)
-        if isinstance(output, tuple):
-            return output
-        elif isinstance(output, list):
-            return tuple(output)
-        else:
-            return (output,)
-
-
-class Value:
-    """A value in the computational graph."""
-
-    op: Optional[Function]
-    inputs: List["Value"]
-    # The following fields are cached fields for dynamic computation.
-    # Can be used to impl checkpointing / rematerialization.
-    outputs: NDArray
-    requires_grad: bool
-
-    # return the data size in GPU
-    def internal_size(self, data):
-        if isinstance(data, NDArray):
-            return data.internal_size()
-        
-        assert isinstance(data, tuple)
-        assert isinstance(self.op, MakeTensorTuple) or isinstance(self.op, Split)
-
-        size = 0
-        for datum in data:
-            size += datum.internal_size()
-        return size
-
-    def get_outputs(self):
-        """Run compute to realize the cached data"""
-        if self.outputs is not None:
-            # add trace
-            return self.cached_data
-        
-        # note: data implicitly calls realized cached data
-        inputs = [x.get_outputs() for x in self.inputs]
-        start = time.perf_counter()
-        data = self.op.compute(*inputs)
-        cost = time.perf_counter() - start
-
-        # ENABLE_GRAD is controlled by checkpointing
-        if (not CHECKPOINT_MODE) or (self.requires_grad and ENABLE_GRAD):
-            self.outputs = data
-        
-        if ENABLE_DTR:
-            ts = time.perf_counter()
-            mem = self.internal_size(data)
-            Dtr.add(self, ts, mem, cost)
-        return data
-
-    def is_leaf(self):
-        return self.op is None
-
-    def __del__(self):
-        global TENSOR_COUNTER
-        TENSOR_COUNTER -= 1
-
-    def _init(
-        self,
-        op: Optional[Function],
-        inputs: List["Tensor"],
-        *,
-        num_outputs: int = 1,
-        outputs: List[object] = None,
-        requires_grad: Optional[bool] = None
-    ):
-        global TENSOR_COUNTER
-        TENSOR_COUNTER += 1
-        if requires_grad is None:
-            requires_grad = any(x.requires_grad for x in inputs)
-        self.op = op
-        self.inputs = inputs
-        self.num_outputs = num_outputs
-        self.outputs = outputs
-        self.requires_grad = requires_grad
-
-    @property
-    def cached_data(self):
-        if ENABLE_DTR:
-            return Dtr.get_obj(self)
-        else:
-            return self.outputs
-
-    @classmethod
-    def make_const(cls, data, *, requires_grad=False):
-        value = cls.__new__(cls)
-        value._init(
-            None,
-            [],
-            outputs=data,
-            requires_grad=requires_grad,
-        )
-        return value
-
-    @classmethod
-    def make_from_op(cls, op: Function, inputs: List["Value"]):
-        value = cls.__new__(cls)
-        value._init(op, inputs)
-
-        if not LAZY_MODE:
-            if not value.requires_grad:
-                return value.detach()
-            value.get_outputs()
-        return value
-
-    def numpy(self):
-        data = self.get_outputs()
-        if array_api is numpy:
-            return data
-        return data.numpy() if not isinstance(data, tuple) else [x.numpy() for x in data]
-
+from ..backend_selection import *
+from .op import *
 
 class Tensor(Value):
     grad: "Tensor"
@@ -230,7 +50,7 @@ class Tensor(Value):
         tensor = Tensor.__new__(Tensor)
         tensor._init(op, inputs)
         if not LAZY_MODE:
-            if (not tensor.requires_grad) or (CHECKPOINT_MODE and not ENABLE_GRAD):
+            if (not tensor.requires_grad) or (ENABLE_CHECKPOINT and not ENABLE_GRAD):
                 return tensor.detach()
             tensor.get_outputs()
         return tensor
@@ -283,7 +103,7 @@ class Tensor(Value):
 
     # auto differentiate
     def backward(self, out_grad=None):
-        from . import init
+        from .. import init
         out_grad = (
             out_grad
             if out_grad
@@ -360,38 +180,6 @@ class Tensor(Value):
     __rmul__ = __mul__
     __rmatmul__ = __matmul__
 
-class TensorTuple(Value):
-    """Represent a tuple of tensors.
-
-    To keep things simple, we do not support nested tuples.
-    """
-
-    def __len__(self):
-        cdata = self.get_outputs()
-        return len(cdata)
-
-    def __getitem__(self, index: int):
-        return tuple_get_item(self, index)
-
-    def tuple(self):
-        return tuple([x for x in self])
-
-    def __repr__(self):
-        return "stick.TensorTuple" + str(self.tuple())
-
-    def __str__(self):
-        return self.__repr__()
-
-    def __add__(self, other):
-        assert isinstance(other, TensorTuple)
-        assert len(self) == len(other)
-        return make_tuple(*[self[i] + other[i] for i in range(len(self))])
-
-    def detach(self):
-        """Create a new tensor that shares the data but detaches from the graph."""
-        return TensorTuple.make_const(self.get_outputs())
-
-
 class TensorOp(Op):
     """ Op class specialized to output tensors, will be alterate subclasses for other structures """
 
@@ -399,54 +187,7 @@ class TensorOp(Op):
         return Tensor.make_from_op(self, args)
     
 
-class TensorTupleOp(Op):
-    """Op class specialized to output TensorTuple"""
 
-    def __call__(self, *args):
-        return TensorTuple.make_from_op(self, args)
-
-
-class MakeTensorTuple(TensorTupleOp):
-    def compute(self, *args) -> tuple:
-        return tuple(args)
-
-    def gradient(self, out_grad, node):
-        assert isinstance(out_grad, TensorTuple)
-        return tuple([out_grad[i] for i in range(len(out_grad))])
-
-
-def make_tuple(*args):
-    return MakeTensorTuple()(*args)
-
-
-class TupleGetItem(TensorOp):
-    def __init__(self, index):
-        self.index = index
-
-    def __call__(self, a: TensorTuple, fold_const=True) -> Value:
-        assert isinstance(a, TensorTuple)
-        # constant folding
-        if fold_const and isinstance(a.op, MakeTensorTuple):
-            return a.inputs[self.index]
-        return Tensor.make_from_op(self, [a])
-
-    def compute(self, a):
-        return a[self.index]
-
-    def gradient(self, out_grad, node):
-        index = self.index
-        in_grad = []
-        for i, value in enumerate(node.inputs[0]):
-            if i != index:
-                from . import init
-                in_grad.append(init.zeros_like(value))
-            else:
-                in_grad.append(out_grad)
-        return MakeTensorTuple()(*in_grad)
-
-
-def tuple_get_item(value, index):
-    return TupleGetItem(index)(value)
 
 
 
@@ -510,21 +251,6 @@ def compute_gradient_of_variables(output_tensor: Tensor, out_grad: Value):
                 node_to_output_grads_list[input] = []
             node_to_output_grads_list[input].append(grad)
     ### END YOUR SOLUTION
-
-class FusedAddScalars(TensorTupleOp):
-    def __init__(self, c0: float, c1: float):
-        self.c0 = c0
-        self.c1 = c1
-
-    def compute(self, a):
-        return a + self.c0, a + self.c1
-
-    def gradient(self, out_grad, node):
-        return out_grad[0] + out_grad[1]
-
-
-def fused_add_scalars(x, c0, c1):
-    return FusedAddScalars(c0, c1)(x)
 
 
 class EWiseAdd(TensorOp):
@@ -887,74 +613,6 @@ class Tanh(TensorOp):
 def tanh(a):
     return Tanh()(a)
 
-
-class Stack(TensorOp):
-    def __init__(self, axis: int):
-        """
-        Concatenates a sequence of arrays along a new dimension.
-        Parameters:
-        axis - dimension to concatenate along
-        All arrays need to be of the same size.
-        """
-        self.axis = axis
-
-    def compute(self, args):
-        ### BEGIN YOUR SOLUTION
-        arr_len = len(args)
-        curr_shape = list(args[0].shape)
-        curr_shape.insert(self.axis, arr_len)
-        stack_arr = array_api.empty(curr_shape, device=args[0].device)
-        slice_idx = [slice(0, len) for len in curr_shape]
-        for i in range(arr_len):
-            slice_idx[self.axis] = i
-            stack_arr[tuple(slice_idx)] = args[i]
-        return stack_arr
-        ### END YOUR SOLUTION
-
-
-    def gradient(self, out_grad, node):
-        ### BEGIN YOUR SOLUTION
-        return split(out_grad, self.axis)
-        ### END YOUR SOLUTION
-
-
-def stack(args, axis):
-    return Stack(axis)(make_tuple(*args))
-
-
-class Split(TensorTupleOp):
-    def __init__(self, axis: int):
-        """
-        Splits a tensor along an axis into a tuple of tensors.
-        (The "inverse" of Stack)
-        Parameters:
-        axis - dimension to split
-        """
-        self.axis = axis
-
-    def compute(self, A):
-        ### BEGIN YOUR SOLUTION
-        arr_len = A.shape[self.axis]
-        curr_shape = list(A.shape)
-        split_arr = []
-        slice_idx = [slice(0, len) for len in curr_shape]
-        curr_shape.pop(self.axis)
-        for i in range(arr_len):
-            slice_idx[self.axis] = i
-            split_arr.append(array_api.reshape(A[tuple(slice_idx)].compact(), curr_shape))
-        return tuple(split_arr)
-        ### END YOUR SOLUTION
-
-    def gradient(self, out_grad, node):
-        ### BEGIN YOUR SOLUTION
-        return stack(out_grad, self.axis)
-        ### END YOUR SOLUTION
-
-
-def split(a, axis):
-    return Split(axis)(a)
-
-
 class Flip(TensorOp):
     def __init__(self, axes: Optional[tuple] = None):
         self.axes = axes
@@ -969,10 +627,8 @@ class Flip(TensorOp):
         return flip(out_grad, self.axes)
         ### END YOUR SOLUTION
 
-
 def flip(a, axes):
     return Flip(axes)(a)
-
 
 class Dilate(TensorOp):
     def __init__(self, axes: tuple, dilation: int):
